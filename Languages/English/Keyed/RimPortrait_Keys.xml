@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+  <!-- Settings -->
+  <RimPortrait_AIService>AI Service</RimPortrait_AIService>
+  <RimPortrait_Service_OpenAI>OpenAI (DALL-E 3)</RimPortrait_Service_OpenAI>
+  <RimPortrait_Service_GoogleAI>Google (Gemini)</RimPortrait_Service_GoogleAI>
+  <RimPortrait_ApiKey>API Key</RimPortrait_ApiKey>
+
+  <!-- Viewer -->
+  <RimPortrait_Viewer_Title>Portrait: {0}</RimPortrait_Viewer_Title>
+  <RimPortrait_Viewer_Loading>Loading or Image Missing...</RimPortrait_Viewer_Loading>
+
+  <!-- Commands -->
+  <RimPortrait_Command_Generate_Tooltip>Generate AI Portrait</RimPortrait_Command_Generate_Tooltip>
+</LanguageData>
