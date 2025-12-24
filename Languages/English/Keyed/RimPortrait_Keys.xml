@@ -10,6 +10,14 @@
   <RimPortrait_Viewer_Title>Portrait: {0}</RimPortrait_Viewer_Title>
   <RimPortrait_Viewer_Loading>Loading or Image Missing...</RimPortrait_Viewer_Loading>
 
+  <!-- Configuration Dialog -->
+  <RimPortrait_Config_Title>Portrait Configuration</RimPortrait_Config_Title>
+  <RimPortrait_Config_Prompt>Prompt</RimPortrait_Config_Prompt>
+  <RimPortrait_Config_Style>Art Style</RimPortrait_Config_Style>
+  <RimPortrait_Config_Composition>Composition</RimPortrait_Config_Composition>
+  <RimPortrait_Config_AspectRatio>Aspect Ratio</RimPortrait_Config_AspectRatio>
+  <RimPortrait_Command_Generate>Generate</RimPortrait_Command_Generate>
+
   <!-- Commands -->
   <RimPortrait_Command_Generate_Tooltip>Generate AI Portrait</RimPortrait_Command_Generate_Tooltip>
 </LanguageData>

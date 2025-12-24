@@ -12,15 +12,14 @@ namespace RimPortrait.Services.Gemini
         private const string ApiUrlFlash = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent";
         private const string ApiUrlPro = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent";
 
-        public static IEnumerator GenerateImage(string apiKey, string prompt, Action<string> onUrlReceived)
+        public static IEnumerator GenerateImage(string apiKey, string prompt, string aspectRatio, Action<string> onUrlReceived)
         {
             var settings = RimPortraitMod.settings;
             string url = settings.geminiModel == GeminiModel.NanoBananaPro ? ApiUrlPro : ApiUrlFlash;
             
             // Construct JSON payload
-            // Note: "aspectRatio" is 1:1 by default if omitted, but let's be explicit if needed. 
-            // For now, we'll stick to a simple default.
-            string jsonPayload = "{\"contents\": [{ \"parts\": [ {\"text\": \"" + EscapeJson(prompt) + "\"} ] }], \"generationConfig\": { \"imageConfig\": { \"aspectRatio\": \"1:1\" } } }";
+            // Use the provided aspectRatio.
+            string jsonPayload = "{\"contents\": [{ \"parts\": [ {\"text\": \"" + EscapeJson(prompt) + "\"} ] }], \"generationConfig\": { \"imageConfig\": { \"aspectRatio\": \"" + aspectRatio + "\" } } }";
 
             using (UnityWebRequest request = new UnityWebRequest(url, "POST"))
             {

@@ -1,7 +1,7 @@
+C:\Users\woals\rimworld-mod\RimPortrait\Assemblies\RimPortrait.dll
 C:\Users\woals\rimworld-mod\RimPortrait\Source\obj\Debug\RimPortrait.csproj.AssemblyReference.cache
 C:\Users\woals\rimworld-mod\RimPortrait\Source\obj\Debug\RimPortrait.GeneratedMSBuildEditorConfig.editorconfig
 C:\Users\woals\rimworld-mod\RimPortrait\Source\obj\Debug\RimPortrait.AssemblyInfoInputs.cache
 C:\Users\woals\rimworld-mod\RimPortrait\Source\obj\Debug\RimPortrait.AssemblyInfo.cs
 C:\Users\woals\rimworld-mod\RimPortrait\Source\obj\Debug\RimPortrait.csproj.CoreCompileInputs.cache
-C:\Users\woals\rimworld-mod\RimPortrait\Assemblies\RimPortrait.dll
 C:\Users\woals\rimworld-mod\RimPortrait\Source\obj\Debug\RimPortrait.dll

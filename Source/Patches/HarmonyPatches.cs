@@ -17,33 +17,18 @@ namespace RimPortrait
             float buttonSize = 24f;
             float margin = 18f;
 
-            // Draw button at the top-right of the card rect
-            // The rect passed to DrawCharacterCard is the card's rect.
-            Rect btnRect = new Rect(rect.width - buttonSize - margin, margin, buttonSize, buttonSize);
+            // Draw button below the top-right buttons (Rename/Banish)
+            // Typically those are at y ~ 18. Let's push this one down.
+            // Previous 'margin' was 18f. Let's try y = 18 + 24 + 10 = 52f.
+            Rect btnRect = new Rect(rect.width - buttonSize - margin, margin + buttonSize + 10f, buttonSize, buttonSize);
              
             if (Widgets.ButtonImage(btnRect, BaseContent.BadTex)) // Placeholder texture
             {
                 SoundDefOf.Click.PlayOneShotOnCamera();
                 string desc = PawnDescriptionBuilder.GetPawnDescription(pawn);
-                Log.Message("[RimPortrait] Generating portrait for: " + desc);
                 
-                AIClient.GeneratePortrait(desc, (url) => {
-                    if (string.IsNullOrEmpty(url)) {
-                        Log.Error("[RimPortrait] Generated URL is empty.");
-                        return;
-                    }
-                    
-                    ImageLoader.LoadImage(url, pawn.ThingID, (texture) => {
-                         if (texture != null)
-                         {
-                             Find.WindowStack.Add(new Dialog_PortraitViewer(texture, pawn.Name.ToStringFull));
-                         }
-                         else
-                         {
-                             Log.Error("[RimPortrait] Failed to load generated image.");
-                         }
-                    });
-                });
+                // Open Configuration Dialog
+                Find.WindowStack.Add(new Dialog_GenerationConfig(pawn, desc));
             }
             TooltipHandler.TipRegion(btnRect, "RimPortrait_Command_Generate_Tooltip".Translate());
         }

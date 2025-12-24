@@ -11,7 +11,7 @@ namespace RimPortrait
     {
         public static string GetPawnDescription(Pawn pawn)
         {
-            if (pawn == null) return "A high quality portrait of a mysterious figure. Artstation style.";
+            if (pawn == null) return "A high quality portrait of a mysterious figure.";
 
             StringBuilder sb = new StringBuilder();
             sb.Append("A high quality portrait of a ");
@@ -79,7 +79,7 @@ namespace RimPortrait
                 sb.Append("wearing simple clothes");
             }
 
-            sb.Append(". Artstation style.");
+            sb.Append(".");
 
             return sb.ToString();
         }
