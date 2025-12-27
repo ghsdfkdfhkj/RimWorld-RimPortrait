@@ -9,7 +9,7 @@ namespace RimPortrait
 {
     public static class ImageLoader
     {
-        private static string CachePath => Path.Combine(GenFilePaths.SaveDataFolderPath, "RimPortrait", "Cache");
+        public static string CachePath => Path.Combine(GenFilePaths.SaveDataFolderPath, "RimPortrait", "Cache");
 
         public static void LoadImage(string urlOrBase64, string pawnId, Action<Texture2D> onComplete)
         {

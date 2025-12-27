@@ -11,10 +11,10 @@ namespace RimPortrait
     {
         public static string GetPawnDescription(Pawn pawn)
         {
-            if (pawn == null) return "Masterpiece, best quality, highly detailed portrait of a mysterious figure.";
+            if (pawn == null) return "Masterpiece, best quality, highly detailed painting of a mysterious figure.";
 
             StringBuilder sb = new StringBuilder();
-            sb.Append("Masterpiece, best quality, highly detailed portrait of a ");
+            sb.Append("Masterpiece, best quality, highly detailed painting of a ");
 
             // 1. Gender & Age
             // Example: "25 year old female"

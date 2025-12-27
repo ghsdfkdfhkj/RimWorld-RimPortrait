@@ -1,3 +1,4 @@
+using UnityEngine;
 using System;
 using Verse;
 
@@ -56,6 +57,37 @@ namespace RimPortrait
                 Log.Error($"[RimPortrait] Error parsing Google response: {ex.Message}");
                 return null;
             }
+        }
+
+
+        public static string TextureToBase64(Texture2D texture)
+        {
+            if (texture == null) return null;
+            try
+            {
+                byte[] bytes = texture.EncodeToPNG();
+                return Convert.ToBase64String(bytes);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[RimPortrait] Failed to encode texture to Base64: {ex.Message}");
+                return null;
+            }
+        }
+
+        public static string RenderTextureToBase64(RenderTexture rt)
+        {
+            if (rt == null) return null;
+            
+            Texture2D tex = new Texture2D(rt.width, rt.height, TextureFormat.RGB24, false);
+            RenderTexture.active = rt;
+            tex.ReadPixels(new UnityEngine.Rect(0, 0, rt.width, rt.height), 0, 0);
+            tex.Apply();
+            RenderTexture.active = null;
+
+            string base64 = TextureToBase64(tex);
+            UnityEngine.Object.Destroy(tex); // Cleanup
+            return base64;
         }
     }
 }

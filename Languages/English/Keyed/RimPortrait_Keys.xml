@@ -20,4 +20,14 @@
 
   <!-- Commands -->
   <RimPortrait_Command_Generate_Tooltip>Generate AI Portrait</RimPortrait_Command_Generate_Tooltip>
+
+  <!-- Image References -->
+  <RimPortrait_Config_ImageReferences>Image References</RimPortrait_Config_ImageReferences>
+  <RimPortrait_Config_UsePawnAppearance>Use Pawn Appearance</RimPortrait_Config_UsePawnAppearance>
+  <RimPortrait_Config_UsePawnAppearanceDesc>Include the pawn's current in-game portrait as a reference image.</RimPortrait_Config_UsePawnAppearanceDesc>
+  <RimPortrait_Config_StyleImageReference>Style Image Reference</RimPortrait_Config_StyleImageReference>
+  <RimPortrait_Config_SelectStyleImage>Select Style Image</RimPortrait_Config_SelectStyleImage>
+  <RimPortrait_Config_ClearSelection>Clear Selection</RimPortrait_Config_ClearSelection>
+  <RimPortrait_Config_SelectedImage>Selected: {0}</RimPortrait_Config_SelectedImage>
+  <RimPortrait_Config_StyleDisabledByImage>(Disabled by Image)</RimPortrait_Config_StyleDisabledByImage>
 </LanguageData>

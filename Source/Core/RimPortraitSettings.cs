@@ -29,6 +29,11 @@ namespace RimPortrait
             base.ExposeData();
         }
 
+        public string GetCurrentServiceKey()
+        {
+            return apiKey;
+        }
+
         public void DoSettingsWindowContents(Rect inRect)
         {
             Listing_Standard listingStandard = new Listing_Standard();

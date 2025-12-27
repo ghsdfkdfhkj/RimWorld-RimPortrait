@@ -1,4 +1,8 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using UnityEngine;
 using Verse;
 using RimWorld;
@@ -10,7 +14,7 @@ namespace RimPortrait
     {
         private string prompt;
         private string selectedAspectRatio = "1:1";
-        private string selectedStyle = "Artstation";
+        private string selectedStyle = "Rimworld";
         private string selectedComposition = "Portrait";
         private Pawn pawn;
         
@@ -18,7 +22,7 @@ namespace RimPortrait
         private static readonly string[] AspectRatios = { "1:1", "3:4", "4:3", "9:16", "16:9" };
         
         // Art Styles
-        private static readonly string[] ArtStyles = { "Artstation", "Anime", "Oil Painting", "Watercolor", "Cyberpunk", "Realistic", "Sketch", "Pixel Art" };
+        private static readonly string[] ArtStyles = { "Rimworld", "Artstation", "Anime", "Oil Painting", "Watercolor", "Realistic", "Sketch", "Pixel Art" };
 
         // Compositions
         private static readonly string[] Compositions = { "Portrait", "Waist-up", "Full Body", "Cinematic", "Isometric" };
@@ -27,11 +31,17 @@ namespace RimPortrait
         private bool artStyleExpanded = false;
         private bool compositionExpanded = false;
         private bool aspectRatioExpanded = false;
+        
+        // Image Input States
+        // Image Input States
+        private bool usePawnAppearance = true;
+        private string selectedStyleImagePath = null;
+        private Texture2D cachedStyleTexture = null;
 
         private Vector2 scrollPosition;
         private float viewHeight = 1000f; // Initial height, updates dynamically
 
-        public override Vector2 InitialSize => new Vector2(500f, 700f); 
+        public override Vector2 InitialSize => new Vector2(500f, 750f); 
 
         public Dialog_GenerationConfig(Pawn pawn, string initialPrompt)
         {
@@ -75,16 +85,76 @@ namespace RimPortrait
             prompt = listing.TextEntry(prompt, 5); 
             listing.Gap();
             
+            // Image Reference Section
+            // Image Reference Section
+            listing.Gap(5f);
+            listing.Label("RimPortrait_Config_ImageReferences".Translate());
+            listing.CheckboxLabeled("RimPortrait_Config_UsePawnAppearance".Translate(), ref usePawnAppearance, "RimPortrait_Config_UsePawnAppearanceDesc".Translate());
+            
+            listing.Gap(5f);
+            listing.Label("RimPortrait_Config_StyleImageReference".Translate());
+
+            Rect styleRow = listing.GetRect(30f);
+            if (Widgets.ButtonText(new Rect(styleRow.x, styleRow.y, 150f, 30f), "RimPortrait_Config_SelectStyleImage".Translate()))
+            {
+                Find.WindowStack.Add(new Dialog_StyleImageSelector((path) => {
+                    selectedStyleImagePath = path;
+                    // Load preview
+                    if (cachedStyleTexture != null) UnityEngine.Object.Destroy(cachedStyleTexture);
+                    cachedStyleTexture = null;
+                    
+                    if (File.Exists(path)) {
+                        try {
+                            byte[] data = File.ReadAllBytes(path);
+                            cachedStyleTexture = new Texture2D(2, 2);
+                            cachedStyleTexture.LoadImage(data);
+                        } catch {}
+                    }
+                }));
+            }
+            
+            if (Widgets.ButtonText(new Rect(styleRow.x + 160f, styleRow.y, 120f, 30f), "RimPortrait_Config_ClearSelection".Translate()))
+            {
+                selectedStyleImagePath = null;
+                if (cachedStyleTexture != null) UnityEngine.Object.Destroy(cachedStyleTexture);
+                cachedStyleTexture = null;
+            }
+            
+            if (!string.IsNullOrEmpty(selectedStyleImagePath))
+            {
+                listing.Gap(5f);
+                listing.Label("RimPortrait_Config_SelectedImage".Translate(Path.GetFileName(selectedStyleImagePath)));
+                
+                if (cachedStyleTexture != null)
+                {
+                    Rect previewRect = listing.GetRect(150f);
+                    // Center the image
+                    float aspect = (float)cachedStyleTexture.width / cachedStyleTexture.height;
+                    float h = 150f;
+                    float w = h * aspect;
+                    if (w > previewRect.width) { w = previewRect.width; h = w / aspect; }
+                    
+                    Rect imgRect = new Rect(previewRect.x, previewRect.y, w, h);
+                    GUI.DrawTexture(imgRect, cachedStyleTexture, ScaleMode.ScaleToFit);
+                }
+            }
+            listing.Gap();
+
             Color darkHeaderColor = new Color(0.12f, 0.12f, 0.12f);
             Color darkHeaderBorderColor = new Color(0.35f, 0.35f, 0.35f);
 
             // --- Art Style Section (Accordion) ---
-            DrawAccordionSection(listing, "RimPortrait_Config_Style".Translate(), selectedStyle, ref artStyleExpanded, darkHeaderColor, darkHeaderBorderColor, () => {
+            // --- Art Style Section (Accordion) ---
+            bool styleDisabled = !string.IsNullOrEmpty(selectedStyleImagePath);
+            string styleHeader = "RimPortrait_Config_Style".Translate();
+            if (styleDisabled) styleHeader += " " + "RimPortrait_Config_StyleDisabledByImage".Translate();
+
+            DrawAccordionSection(listing, styleHeader, selectedStyle, ref artStyleExpanded, darkHeaderColor, darkHeaderBorderColor, () => {
                 DrawOptionGrid(listing, ArtStyles, selectedStyle, (val) => {
                     selectedStyle = val;
                     UpdatePromptStyle(selectedStyle);
                 });
-            });
+            }, disabled: styleDisabled);
 
             // --- Composition Section (Accordion) ---
             DrawAccordionSection(listing, "RimPortrait_Config_Composition".Translate(), selectedComposition, ref compositionExpanded, darkHeaderColor, darkHeaderBorderColor, () => {
@@ -125,13 +195,26 @@ namespace RimPortrait
             }
         }
 
-        private void DrawAccordionSection(Listing_Standard listing, string label, string currentVal, ref bool expanded, Color bgColor, Color borderColor, Action drawContents)
+        private void DrawAccordionSection(Listing_Standard listing, string label, string currentVal, ref bool expanded, Color bgColor, Color borderColor, Action drawContents, bool disabled = false)
         {
+            // If disabled, collapse
+            if (disabled && expanded) expanded = false;
+
             string headerText = $"{label}: {currentVal} {(expanded ? "▲" : "▼")}";
             Rect headerRect = listing.GetRect(30f);
-            Widgets.DrawBoxSolidWithOutline(headerRect, bgColor, borderColor);
             
-            if (Widgets.ButtonInvisible(headerRect))
+            // Gray out if disabled
+            if (disabled)
+            {
+                GUI.color = Color.gray;
+                Widgets.DrawBoxSolidWithOutline(headerRect, bgColor * 0.7f, borderColor * 0.7f);
+            }
+            else
+            {
+                Widgets.DrawBoxSolidWithOutline(headerRect, bgColor, borderColor);
+            }
+            
+            if (!disabled && Widgets.ButtonInvisible(headerRect))
             {
                 expanded = !expanded;
                 SoundDefOf.Tick_Tiny.PlayOneShotOnCamera(null);
@@ -142,6 +225,8 @@ namespace RimPortrait
             labelRect.xMin += 10f;
             Widgets.Label(labelRect, headerText);
             Text.Anchor = TextAnchor.UpperLeft;
+            
+            if (disabled) GUI.color = Color.white;
 
             if (expanded)
             {
@@ -193,29 +278,76 @@ namespace RimPortrait
         private void Generate()
         {
             string finalPrompt = prompt;
-            // Style is already in the prompt now
+            string pawnBase64 = null;
+            string styleBase64 = null;
+
+            // Capture Pawn Appearance
+            if (usePawnAppearance)
+            {
+                 RenderTexture rt = PortraitsCache.Get(pawn, new Vector2(1024f, 1024f), Rot4.South, new Vector3(0f, 0f, 0.1f), 1f);
+                 pawnBase64 = PortraitUtils.RenderTextureToBase64(rt);
+            }
+
+            // Handle Style Image Local
+            if (!string.IsNullOrEmpty(selectedStyleImagePath) && File.Exists(selectedStyleImagePath))
+            {
+                try
+                {
+                    byte[] bytes = File.ReadAllBytes(selectedStyleImagePath);
+                    styleBase64 = System.Convert.ToBase64String(bytes);
+                    
+                    // Absolute Style Reference Logic
+                    // 1. Remove text-based style if present to avoid conflict
+                    string suffix = " art style";
+                    foreach (string style in ArtStyles)
+                    {
+                        string search = $", {style}{suffix}";
+                        int idx = finalPrompt.IndexOf(search);
+                        if (idx != -1) finalPrompt = finalPrompt.Remove(idx, search.Length);
+                    }
+                    
+                    // 2. Append Strong Instruction
+                    // Note: Gemini receiving order is [Text, PawnImage (optional), StyleImage (optional)]
+                    // If pawnBase64 is present, StyleImage is the 2nd image.
+                    // If pawnBase64 is null, StyleImage is the 1st image.
+                    
+                    string imageRefText = !string.IsNullOrEmpty(pawnBase64) ? "second image" : "provided image";
+                    finalPrompt += $". STRONGLY FOLLOW THE STYLE OF THE {imageRefText.ToUpper()}. Replicate the art style of the {imageRefText} exactly, ignoring any other style descriptions.";
+                }
+                catch (System.Exception ex)
+                {
+                    Log.Error($"[RimPortrait] Failed to load style image: {ex.Message}");
+                }
+            }
             
             Log.Message($"[RimPortrait] Starting generation with prompt: {finalPrompt} | Ratio: {selectedAspectRatio}");
             
-            AIClient.GeneratePortrait(finalPrompt, (url) => {
-                if (string.IsNullOrEmpty(url)) {
-                    Log.Error("[RimPortrait] Generated URL is empty.");
-                    return;
-                }
-                
-                ImageLoader.LoadImage(url, pawn.ThingID, (texture) => {
-                     if (texture != null)
-                     {
-                         Find.WindowStack.Add(new Dialog_PortraitViewer(texture, pawn.Name.ToStringFull));
-                     }
-                     else
-                     {
-                         Log.Error("[RimPortrait] Failed to load generated image.");
-                     }
-                });
-            }, selectedAspectRatio);
+            AIClient.GeneratePortrait(finalPrompt, HandleUrlReceived, selectedAspectRatio, pawnBase64, styleBase64);
             
             Close();
+        }
+
+
+        
+
+        
+        private void HandleUrlReceived(string url)
+        {
+            if (string.IsNullOrEmpty(url)) {
+                Log.Error("[RimPortrait] Generated URL is empty.");
+                return;
+            }
+            
+            ImageLoader.LoadImage(url, pawn.ThingID, (texture) => {
+                 if (texture != null)
+                 {
+                     Find.WindowStack.Add(new Dialog_PortraitViewer(texture, pawn.Name.ToStringFull));
+                 }
+                 else
+                 {
+                     Log.Error("[RimPortrait] Failed to load generated image.");
+                 }
+            });
         }
 
 
