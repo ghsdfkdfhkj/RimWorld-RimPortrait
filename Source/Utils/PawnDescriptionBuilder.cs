@@ -11,10 +11,10 @@ namespace RimPortrait
     {
         public static string GetPawnDescription(Pawn pawn)
         {
-            if (pawn == null) return "A high quality portrait of a mysterious figure.";
+            if (pawn == null) return "Masterpiece, best quality, highly detailed portrait of a mysterious figure.";
 
             StringBuilder sb = new StringBuilder();
-            sb.Append("A high quality portrait of a ");
+            sb.Append("Masterpiece, best quality, highly detailed portrait of a ");
 
             // 1. Gender & Age
             // Example: "25 year old female"
@@ -36,6 +36,17 @@ namespace RimPortrait
                 sb.Append("person, ");
             }
 
+            // 1.5 Body Type
+            if (pawn.story != null && pawn.story.bodyType != null)
+            {
+                string bodyLabel = pawn.story.bodyType.label;
+                if (string.IsNullOrEmpty(bodyLabel))
+                {
+                    bodyLabel = pawn.story.bodyType.defName;
+                }
+                sb.Append($"{bodyLabel} body type, ");
+            }
+
             // 2. Skin Color
             if (pawn.story != null)
             {
@@ -54,6 +65,33 @@ namespace RimPortrait
             else
             {
                 sb.Append("bald head, ");
+            }
+
+            // 3.5 Beard / Facial Hair
+            if (pawn.style != null && pawn.style.beardDef != null && !pawn.style.beardDef.defName.Contains("NoBeard"))
+            {
+                 sb.Append($"sporting a {pawn.style.beardDef.label}, ");
+            }
+
+            // 3.6 Tattoos
+            if (pawn.style != null)
+            {
+                // Face Tattoo
+                if (pawn.style.FaceTattoo != null && !pawn.style.FaceTattoo.defName.Contains("NoTattoo"))
+                {
+                    sb.Append($"with {pawn.style.FaceTattoo.label} face tattoo, ");
+                }
+                // Body Tattoo
+                if (pawn.style.BodyTattoo != null && !pawn.style.BodyTattoo.defName.Contains("NoTattoo"))
+                {
+                    sb.Append($"with {pawn.style.BodyTattoo.label} body tattoo, ");
+                }
+            }
+
+            // 3.7 Equipment (Weapon)
+            if (pawn.equipment != null && pawn.equipment.Primary != null)
+            {
+                 sb.Append($"holding a {pawn.equipment.Primary.def.label}, ");
             }
 
             // 4. Apparel

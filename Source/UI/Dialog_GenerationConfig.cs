@@ -1,6 +1,8 @@
 using System;
 using UnityEngine;
 using Verse;
+using RimWorld;
+using Verse.Sound;
 
 namespace RimPortrait
 {
@@ -8,7 +10,8 @@ namespace RimPortrait
     {
         private string prompt;
         private string selectedAspectRatio = "1:1";
-        private string selectedStyle = "Default";
+        private string selectedStyle = "Artstation";
+        private string selectedComposition = "Portrait";
         private Pawn pawn;
         
         // Gemini Aspect Ratios
@@ -20,10 +23,15 @@ namespace RimPortrait
         // Compositions
         private static readonly string[] Compositions = { "Portrait", "Waist-up", "Full Body", "Cinematic", "Isometric" };
 
-        private string selectedComposition = "Portrait";
+        // Accordion States
+        private bool artStyleExpanded = false;
+        private bool compositionExpanded = false;
+        private bool aspectRatioExpanded = false;
 
+        private Vector2 scrollPosition;
+        private float viewHeight = 1000f; // Initial height, updates dynamically
 
-        public override Vector2 InitialSize => new Vector2(500f, 650f); // Increased height for composition
+        public override Vector2 InitialSize => new Vector2(500f, 700f); 
 
         public Dialog_GenerationConfig(Pawn pawn, string initialPrompt)
         {
@@ -32,12 +40,30 @@ namespace RimPortrait
             this.forcePause = true;
             this.doCloseX = true;
             this.doCloseButton = false;
+
+            // Apply default prompt modifiers
+            UpdatePromptStyle(selectedStyle);
+            UpdatePromptComposition(selectedComposition);
         }
 
         public override void DoWindowContents(Rect inRect)
         {
+            // Bottom area for buttons
+            float btnHeight = 30f;
+            float btnGap = 10f;
+            float bottomMargin = 10f;
+            // Layout: Generate Button, then Close Button, with gaps
+            float bottomAreaHeight = (btnHeight * 2) + (btnGap * 2) + bottomMargin;
+
+            // Scroll View Area
+            Rect outRect = new Rect(inRect.x, inRect.y, inRect.width, inRect.height - bottomAreaHeight);
+            Rect viewRect = new Rect(0f, 0f, outRect.width - 16f, viewHeight);
+
+            Widgets.BeginScrollView(outRect, ref scrollPosition, viewRect);
+            
             Listing_Standard listing = new Listing_Standard();
-            listing.Begin(inRect);
+            // Use infinite height for the listing so it doesn't clip content based on the previous frame's height
+            listing.Begin(new Rect(0f, 0f, viewRect.width, float.MaxValue));
 
             Text.Font = GameFont.Medium;
             listing.Label("RimPortrait_Config_Title".Translate());
@@ -49,77 +75,119 @@ namespace RimPortrait
             prompt = listing.TextEntry(prompt, 5); 
             listing.Gap();
             
-            // Art Style Section
-            // Art Style Section
-            listing.Label("RimPortrait_Config_Style".Translate() + ": " + selectedStyle); 
-            
-            Rect styleRect = listing.GetRect(60f); // 2 rows of buttons
-            float widthPerStyle = styleRect.width / 4f; 
-            
-            for (int i = 0; i < ArtStyles.Length; i++)
-            {
-                int row = i / 4;
-                int col = i % 4;
-                Rect btnRect = new Rect(styleRect.x + (col * widthPerStyle), styleRect.y + (row * 30f), widthPerStyle - 5f, 30f);
-                if (Widgets.ButtonText(btnRect, ArtStyles[i]))
-                {
-                    if (selectedStyle != ArtStyles[i])
-                    {
-                        selectedStyle = ArtStyles[i];
-                        UpdatePromptStyle(selectedStyle);
-                    }
-                }
-            }
-            listing.Gap(40f);
+            Color darkHeaderColor = new Color(0.12f, 0.12f, 0.12f);
+            Color darkHeaderBorderColor = new Color(0.35f, 0.35f, 0.35f);
 
-            // Composition Section
-            listing.Label("RimPortrait_Config_Composition".Translate() + ": " + selectedComposition);
-            Rect compRect = listing.GetRect(30f);
-            float widthPerComp = compRect.width / Compositions.Length;
+            // --- Art Style Section (Accordion) ---
+            DrawAccordionSection(listing, "RimPortrait_Config_Style".Translate(), selectedStyle, ref artStyleExpanded, darkHeaderColor, darkHeaderBorderColor, () => {
+                DrawOptionGrid(listing, ArtStyles, selectedStyle, (val) => {
+                    selectedStyle = val;
+                    UpdatePromptStyle(selectedStyle);
+                });
+            });
 
-            for (int i = 0; i < Compositions.Length; i++)
-            {
-                Rect btnRect = new Rect(compRect.x + (i * widthPerComp), compRect.y, widthPerComp - 5f, 30f);
-                if (Widgets.ButtonText(btnRect, Compositions[i]))
-                {
-                    if (selectedComposition != Compositions[i])
-                    {
-                        selectedComposition = Compositions[i];
-                        UpdatePromptComposition(selectedComposition);
-                    }
-                }
-            }
-            listing.Gap(30f);
+            // --- Composition Section (Accordion) ---
+            DrawAccordionSection(listing, "RimPortrait_Config_Composition".Translate(), selectedComposition, ref compositionExpanded, darkHeaderColor, darkHeaderBorderColor, () => {
+                 DrawOptionGrid(listing, Compositions, selectedComposition, (val) => {
+                     if (selectedComposition != val)
+                     {
+                         selectedComposition = val;
+                         UpdatePromptComposition(selectedComposition);
+                     }
+                 });
+            });
 
-            // Aspect Ratio Section
-            listing.Label("RimPortrait_Config_AspectRatio".Translate() + ": " + selectedAspectRatio);
+            // --- Aspect Ratio Section (Accordion) ---
+            DrawAccordionSection(listing, "RimPortrait_Config_AspectRatio".Translate(), selectedAspectRatio, ref aspectRatioExpanded, darkHeaderColor, darkHeaderBorderColor, () => {
+                 DrawOptionGrid(listing, AspectRatios, selectedAspectRatio, (val) => selectedAspectRatio = val);
+            });
+
+            listing.Gap(20f); // Extra space at bottom of scroll content
+
+            viewHeight = listing.CurHeight; // Update view height for next frame
+            listing.End();
+            Widgets.EndScrollView();
+
+            // --- Fixed Bottom Buttons ---
+            float yPos = inRect.yMax - bottomAreaHeight + btnGap;
             
-            Rect ratioRect = listing.GetRect(30f);
-            float widthPerBtn = ratioRect.width / AspectRatios.Length;
-            
-            for (int i = 0; i < AspectRatios.Length; i++)
-            {
-                Rect btnRect = new Rect(ratioRect.x + (i * widthPerBtn), ratioRect.y, widthPerBtn - 5f, 30f);
-                if (Widgets.ButtonText(btnRect, AspectRatios[i]))
-                {
-                    selectedAspectRatio = AspectRatios[i];
-                }
-            }
-            listing.Gap(30f);
-
-            // Generate Button
-            if (listing.ButtonText("RimPortrait_Command_Generate".Translate()))
+            Rect btnRectGenerate = new Rect(inRect.x, yPos, inRect.width, btnHeight);
+            if (Widgets.ButtonText(btnRectGenerate, "RimPortrait_Command_Generate".Translate()))
             {
                 Generate();
             }
 
-            // Close/Cancel
-            if (listing.ButtonText("CloseButton".Translate()))
+            yPos += btnHeight + btnGap;
+            Rect btnRectClose = new Rect(inRect.x, yPos, inRect.width, btnHeight);
+            if (Widgets.ButtonText(btnRectClose, "CloseButton".Translate()))
             {
                 Close();
             }
+        }
 
-            listing.End();
+        private void DrawAccordionSection(Listing_Standard listing, string label, string currentVal, ref bool expanded, Color bgColor, Color borderColor, Action drawContents)
+        {
+            string headerText = $"{label}: {currentVal} {(expanded ? "▲" : "▼")}";
+            Rect headerRect = listing.GetRect(30f);
+            Widgets.DrawBoxSolidWithOutline(headerRect, bgColor, borderColor);
+            
+            if (Widgets.ButtonInvisible(headerRect))
+            {
+                expanded = !expanded;
+                SoundDefOf.Tick_Tiny.PlayOneShotOnCamera(null);
+            }
+            
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Rect labelRect = headerRect;
+            labelRect.xMin += 10f;
+            Widgets.Label(labelRect, headerText);
+            Text.Anchor = TextAnchor.UpperLeft;
+
+            if (expanded)
+            {
+                listing.Gap(5f);
+                drawContents();
+                listing.Gap(10f);
+            }
+            else
+            {
+                listing.Gap(5f); // Small gap even if closed
+            }
+        }
+
+        private void DrawOptionGrid(Listing_Standard listing, string[] options, string currentVal, Action<string> onSelect)
+        {
+            float rowHeight = 30f;
+            int cols = 4; // Adjust columns based on space? 4 is good for small items.
+            int rows = Mathf.CeilToInt((float)options.Length / cols);
+            
+            Rect gridRect = listing.GetRect(rows * rowHeight);
+            float colWidth = gridRect.width / cols;
+
+            for (int i = 0; i < options.Length; i++)
+            {
+                int r = i / cols;
+                int c = i % cols;
+                Rect itemRect = new Rect(gridRect.x + (c * colWidth), gridRect.y + (r * rowHeight), colWidth - 4f, rowHeight - 4f);
+                
+                bool isSelected = options[i] == currentVal;
+                Widgets.DrawOptionBackground(itemRect, isSelected);
+
+                if (Widgets.ButtonInvisible(itemRect))
+                {
+                    onSelect(options[i]);
+                    SoundDefOf.Tick_Tiny.PlayOneShotOnCamera(null);
+                }
+
+                Text.Anchor = TextAnchor.MiddleLeft;
+                Rect txtRect = itemRect;
+                txtRect.xMin += 10f;
+                // Highlight color improvement
+                if (isSelected) GUI.color = Color.cyan;
+                Widgets.Label(txtRect, options[i]);
+                GUI.color = Color.white;
+                Text.Anchor = TextAnchor.UpperLeft;
+            }
         }
 
         private void Generate()
@@ -164,22 +232,11 @@ namespace RimPortrait
                     prompt = prompt.Substring(0, prompt.Length - pattern.Length);
                     break;
                 }
-                // Also check if it's potentially followed by style (complex case not fully handled but basic suffix logic works if order is strictly Composition then Style? Or Style then Composition?)
-                // Current logic appends. So order depends on user click order. 
-                // To be robust, we need to regex or search anywhere? 
-                // For simplicity: Simple suffix replacement. If user mixes clicks, prompt might get ", Style, Comp".
-                // If I click Style then Comp: "..., Style, Comp".
-                // If I click Comp then Style: "..., Comp, Style".
-                // Deleting via suffix matches only the LAST element.
-                // This is a limitation. But simple.
-                // Let's improve robustness: Replace specific substring anywhere.
                 
                 string search = $", {comp}";
                 int idx = prompt.IndexOf(search);
                 if (idx != -1)
                 {
-                    // Check if it matches a full word boundary if possible, but here they are specific keys.
-                    // Just remove it.
                      prompt = prompt.Remove(idx, search.Length);
                 }
             }
@@ -192,10 +249,10 @@ namespace RimPortrait
         {
             string suffix = " art style";
             
-            // Remove any known style suffix logic updated to 'search and remove' for robustness
+            // Remove any known style
             foreach (string style in ArtStyles)
             {
-                if (style == "Default") continue; // Should be removed from array anyway
+                if (style == "Default") continue; 
                 
                 string search = $", {style}{suffix}";
                 int idx = prompt.IndexOf(search);
