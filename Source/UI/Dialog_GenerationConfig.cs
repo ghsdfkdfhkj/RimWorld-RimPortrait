@@ -15,7 +15,7 @@ namespace RimPortrait
         private string prompt;
         private string selectedAspectRatio = "1:1";
         private string selectedStyle = "Rimworld";
-        private string selectedComposition = "Portrait";
+        private string selectedPose = "Portrait";
         private Pawn pawn;
         
         // Gemini Aspect Ratios
@@ -24,12 +24,12 @@ namespace RimPortrait
         // Art Styles
         private static readonly string[] ArtStyles = { "Rimworld", "Artstation", "Anime", "Oil Painting", "Watercolor", "Realistic", "Sketch", "Pixel Art" };
 
-        // Compositions
-        private static readonly string[] Compositions = { "Portrait", "Waist-up", "Full Body", "Cinematic", "Isometric" };
+        // Poses
+        private static readonly string[] Poses = { "Portrait", "Waist-up", "Full Body", "Dynamic", "Standing", "Sitting" };
 
         // Accordion States
         private bool artStyleExpanded = false;
-        private bool compositionExpanded = false;
+        private bool poseExpanded = false;
         private bool aspectRatioExpanded = false;
         
         // Image Input States
@@ -37,6 +37,8 @@ namespace RimPortrait
         private bool usePawnAppearance = true;
         private string selectedStyleImagePath = null;
         private Texture2D cachedStyleTexture = null;
+        private bool useStyleRef_Style = true;
+        private bool useStyleRef_Pose = true;
 
         private Vector2 scrollPosition;
         private float viewHeight = 1000f; // Initial height, updates dynamically
@@ -53,7 +55,7 @@ namespace RimPortrait
 
             // Apply default prompt modifiers
             UpdatePromptStyle(selectedStyle);
-            UpdatePromptComposition(selectedComposition);
+            UpdatePromptPose(selectedPose);
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -108,6 +110,10 @@ namespace RimPortrait
                             byte[] data = File.ReadAllBytes(path);
                             cachedStyleTexture = new Texture2D(2, 2);
                             cachedStyleTexture.LoadImage(data);
+                            
+                            // Remove Style Text from prompt because Image overrides it
+                            if (useStyleRef_Style) UpdatePromptStyle("Default");
+                            if (useStyleRef_Pose) UpdatePromptPose(null); 
                         } catch {}
                     }
                 }));
@@ -118,6 +124,10 @@ namespace RimPortrait
                 selectedStyleImagePath = null;
                 if (cachedStyleTexture != null) UnityEngine.Object.Destroy(cachedStyleTexture);
                 cachedStyleTexture = null;
+                
+                // Restore Style Text
+                UpdatePromptStyle(selectedStyle);
+                UpdatePromptPose(selectedPose);
             }
             
             if (!string.IsNullOrEmpty(selectedStyleImagePath))
@@ -127,15 +137,39 @@ namespace RimPortrait
                 
                 if (cachedStyleTexture != null)
                 {
-                    Rect previewRect = listing.GetRect(150f);
-                    // Center the image
+                    Rect groupRect = listing.GetRect(150f);
+                    
+                    // Image Preview Calculation
                     float aspect = (float)cachedStyleTexture.width / cachedStyleTexture.height;
                     float h = 150f;
                     float w = h * aspect;
-                    if (w > previewRect.width) { w = previewRect.width; h = w / aspect; }
+                    if (w > groupRect.width * 0.6f) { w = groupRect.width * 0.6f; h = w / aspect; }
                     
-                    Rect imgRect = new Rect(previewRect.x, previewRect.y, w, h);
+                    Rect imgRect = new Rect(groupRect.x, groupRect.y, w, h);
                     GUI.DrawTexture(imgRect, cachedStyleTexture, ScaleMode.ScaleToFit);
+                    
+                    // Checkboxes to the Right
+                    float cbX = imgRect.xMax + 10f;
+                    float cbY = groupRect.y;
+                    float cbWidth = groupRect.width - (cbX - groupRect.x);
+                    
+                    Rect cbRectStyle = new Rect(cbX, cbY + 10f, cbWidth, 24f);
+                    bool oldStyle = useStyleRef_Style;
+                    Widgets.CheckboxLabeled(cbRectStyle, "RimPortrait_Config_RefStyle".Translate(), ref useStyleRef_Style);
+                    if (oldStyle != useStyleRef_Style)
+                    {
+                         if (useStyleRef_Style) UpdatePromptStyle("Default"); // Remove manual style if using image style
+                         else UpdatePromptStyle(selectedStyle); // Restore manual style if NOT using image style
+                    }
+                    
+                    Rect cbRectPose = new Rect(cbX, cbY + 40f, cbWidth, 24f);
+                    bool oldPose = useStyleRef_Pose;
+                    Widgets.CheckboxLabeled(cbRectPose, "RimPortrait_Config_RefPose".Translate(), ref useStyleRef_Pose);
+                    if (oldPose != useStyleRef_Pose)
+                    {
+                         if (useStyleRef_Pose) UpdatePromptPose(null); // Remove manual pose if using image pose
+                         else UpdatePromptPose(selectedPose); // Restore manual pose if NOT using image pose
+                    }
                 }
             }
             listing.Gap();
@@ -145,7 +179,7 @@ namespace RimPortrait
 
             // --- Art Style Section (Accordion) ---
             // --- Art Style Section (Accordion) ---
-            bool styleDisabled = !string.IsNullOrEmpty(selectedStyleImagePath);
+            bool styleDisabled = !string.IsNullOrEmpty(selectedStyleImagePath) && useStyleRef_Style;
             string styleHeader = "RimPortrait_Config_Style".Translate();
             if (styleDisabled) styleHeader += " " + "RimPortrait_Config_StyleDisabledByImage".Translate();
 
@@ -156,16 +190,20 @@ namespace RimPortrait
                 });
             }, disabled: styleDisabled);
 
-            // --- Composition Section (Accordion) ---
-            DrawAccordionSection(listing, "RimPortrait_Config_Composition".Translate(), selectedComposition, ref compositionExpanded, darkHeaderColor, darkHeaderBorderColor, () => {
-                 DrawOptionGrid(listing, Compositions, selectedComposition, (val) => {
-                     if (selectedComposition != val)
+            // --- Pose Section (Accordion) ---
+            bool poseDisabled = !string.IsNullOrEmpty(selectedStyleImagePath) && useStyleRef_Pose;
+            string poseHeader = "RimPortrait_Config_Pose".Translate();
+            if (poseDisabled) poseHeader += " " + "RimPortrait_Config_StyleDisabledByImage".Translate(); // Reusing the same "Disabled by Image" key
+
+            DrawAccordionSection(listing, poseHeader, selectedPose, ref poseExpanded, darkHeaderColor, darkHeaderBorderColor, () => {
+                 DrawOptionGrid(listing, Poses, selectedPose, (val) => {
+                     if (selectedPose != val)
                      {
-                         selectedComposition = val;
-                         UpdatePromptComposition(selectedComposition);
+                         selectedPose = val;
+                         UpdatePromptPose(selectedPose);
                      }
                  });
-            });
+            }, disabled: poseDisabled);
 
             // --- Aspect Ratio Section (Accordion) ---
             DrawAccordionSection(listing, "RimPortrait_Config_AspectRatio".Translate(), selectedAspectRatio, ref aspectRatioExpanded, darkHeaderColor, darkHeaderBorderColor, () => {
@@ -296,23 +334,25 @@ namespace RimPortrait
                     byte[] bytes = File.ReadAllBytes(selectedStyleImagePath);
                     styleBase64 = System.Convert.ToBase64String(bytes);
                     
-                    // Absolute Style Reference Logic
-                    // 1. Remove text-based style if present to avoid conflict
-                    string suffix = " art style";
-                    foreach (string style in ArtStyles)
+                    string imageRefText = !string.IsNullOrEmpty(pawnBase64) ? "second image" : "provided image";
+
+                    if (useStyleRef_Style)
                     {
-                        string search = $", {style}{suffix}";
-                        int idx = finalPrompt.IndexOf(search);
-                        if (idx != -1) finalPrompt = finalPrompt.Remove(idx, search.Length);
+                        // 1. Remove text-based style if present to avoid conflict
+                        string suffix = " art style";
+                        foreach (string style in ArtStyles)
+                        {
+                             string search = $", {style}{suffix}";
+                             finalPrompt = finalPrompt.Replace(search, "");
+                        }
+                        
+                        finalPrompt += $". STRONGLY FOLLOW THE STYLE OF THE {imageRefText.ToUpper()}. Replicate the art style of the {imageRefText} exactly, ignoring any other style descriptions.";
                     }
                     
-                    // 2. Append Strong Instruction
-                    // Note: Gemini receiving order is [Text, PawnImage (optional), StyleImage (optional)]
-                    // If pawnBase64 is present, StyleImage is the 2nd image.
-                    // If pawnBase64 is null, StyleImage is the 1st image.
-                    
-                    string imageRefText = !string.IsNullOrEmpty(pawnBase64) ? "second image" : "provided image";
-                    finalPrompt += $". STRONGLY FOLLOW THE STYLE OF THE {imageRefText.ToUpper()}. Replicate the art style of the {imageRefText} exactly, ignoring any other style descriptions.";
+                    if (useStyleRef_Pose)
+                    {
+                        finalPrompt += $". MIMIC THE POSE AND COMPOSITION OF THE {imageRefText.ToUpper()}. Use the exact same camera angle and character positioning.";
+                    }
                 }
                 catch (System.Exception ex)
                 {
@@ -338,7 +378,23 @@ namespace RimPortrait
                 return;
             }
             
-            ImageLoader.LoadImage(url, pawn.ThingID, (texture) => {
+            // Construct History Name: SettlementName_PawnName
+            string settlementName = "Unknown";
+            if (pawn.Map != null && pawn.Map.Parent != null)
+            {
+                settlementName = pawn.Map.Parent.LabelCap; // "Community"
+            }
+            else if (pawn.Faction != null)
+            {
+                settlementName = pawn.Faction.Name;
+            }
+            
+            string pawnName = pawn.Name != null ? pawn.Name.ToStringShort : pawn.LabelShort;
+            
+            string historyName = $"{settlementName}_{pawnName}";
+
+            // Force refresh because we just generated a new image
+            ImageLoader.LoadImage(url, pawn, (texture) => {
                  if (texture != null)
                  {
                      Find.WindowStack.Add(new Dialog_PortraitViewer(texture, pawn.Name.ToStringFull));
@@ -347,54 +403,53 @@ namespace RimPortrait
                  {
                      Log.Error("[RimPortrait] Failed to load generated image.");
                  }
-            });
+            }, forceRefresh: true, historyBaseName: historyName);
         }
 
 
-        private void UpdatePromptComposition(string newComp)
+        private void UpdatePromptPose(string newPose)
         {
-            string prefix = ", ";
-            
-            // Remove known compositions
-            foreach (string comp in Compositions)
-            {
-                string pattern = $"{prefix}{comp}";
-                if (prompt.EndsWith(pattern))
-                {
-                    prompt = prompt.Substring(0, prompt.Length - pattern.Length);
-                    break;
-                }
-                
-                string search = $", {comp}";
-                int idx = prompt.IndexOf(search);
-                if (idx != -1)
-                {
-                     prompt = prompt.Remove(idx, search.Length);
-                }
-            }
+            prompt = CleanPromptOption(prompt, Poses, ", ");
+            prompt = CleanPromptOption(prompt, Poses);
             
             // Append
-            prompt += $", {newComp}";
+            if (!string.IsNullOrEmpty(newPose))
+            {
+                prompt += $", {newPose}";
+            }
         }
 
         private void UpdatePromptStyle(string newStyle)
         {
             string suffix = " art style";
             
-            // Remove any known style
+            // Remove known styles
             foreach (string style in ArtStyles)
             {
-                if (style == "Default") continue; 
-                
-                string search = $", {style}{suffix}";
-                int idx = prompt.IndexOf(search);
-                if (idx != -1)
-                {
-                     prompt = prompt.Remove(idx, search.Length);
-                }
+                string styleTerm = style + suffix;
+                prompt = CleanPromptOption(prompt, new[] { styleTerm }, ", ");
+                prompt = CleanPromptOption(prompt, new[] { styleTerm });
             }
 
-            prompt += $", {newStyle}{suffix}";
+            if (newStyle != "Default")
+            {
+                prompt += $", {newStyle}{suffix}";
+            }
+        }
+        
+        private string CleanPromptOption(string input, string[] options, string prefix = "")
+        {
+            string current = input;
+            foreach (string opt in options)
+            {
+                string search = prefix + opt;
+                int idx = current.IndexOf(search);
+                if (idx != -1)
+                {
+                    current = current.Remove(idx, search.Length);
+                }
+            }
+            return current;
         }
 
         private void Close()

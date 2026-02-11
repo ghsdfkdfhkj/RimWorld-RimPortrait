@@ -11,7 +11,7 @@ namespace RimPortrait
     {
         public static string CachePath => Path.Combine(GenFilePaths.SaveDataFolderPath, "RimPortrait", "Cache");
 
-        public static void LoadImage(string urlOrBase64, string pawnId, Action<Texture2D> onComplete)
+        public static void LoadImage(string urlOrBase64, Pawn pawn, Action<Texture2D> onComplete, bool forceRefresh = false, string historyBaseName = null)
         {
             // Ensure cache directory exists
             if (!Directory.Exists(CachePath))
@@ -19,24 +19,56 @@ namespace RimPortrait
                 Directory.CreateDirectory(CachePath);
             }
 
-            string filePath = Path.Combine(CachePath, $"{pawnId}.png");
+            string pawnId = pawn.ThingID;
+            
+            // Resolve Filename using DataStore
+            var store = Find.World.GetComponent<RimPortraitDataStore>();
+            string currentFilename = store?.GetPortraitPath(pawnId);
+            
+            // Fallback to old format if not in store
+            if (string.IsNullOrEmpty(currentFilename))
+            {
+                currentFilename = $"{pawnId}.png";
+            }
+            
+            string filePath = Path.Combine(CachePath, currentFilename);
+            
+            if (!forceRefresh && string.IsNullOrEmpty(urlOrBase64))
+            {
+                // Try to load existing
+                if (File.Exists(filePath))
+                {
+                    Main.CoroutineRunner.StartCoroutine(LoadLocalImage(filePath, onComplete));
+                }
+                else
+                {
+                    // If stored filename doesn't exist, check for legacy PawnID.png just in case
+                    string legacyPath = Path.Combine(CachePath, $"{pawnId}.png");
+                    if (File.Exists(legacyPath))
+                    {
+                        Main.CoroutineRunner.StartCoroutine(LoadLocalImage(legacyPath, onComplete));
+                    }
+                    else
+                    {
+                        onComplete?.Invoke(null);
+                    }
+                }
+                return;
+            }
 
-            // Heuristic detection of Base64 (Google API doesn't return data:image prefix usually, just raw base64)
-            // But let's check length and content.
+            // Heuristic detection of Base64
             bool isBase64 = IsBase64(urlOrBase64);
 
             if (isBase64)
             {
-                // It's a Base64 string from Gemini
                 try 
                 {
                     byte[] imageBytes = Convert.FromBase64String(urlOrBase64);
                     Texture2D texture = new Texture2D(2, 2);
                     if (texture.LoadImage(imageBytes))
                     {
-                        // Save to cache for consistency? 
-                        // Yes, if we want to reload it later without api call.
-                        File.WriteAllBytes(filePath, imageBytes);
+                        // Logic for Saving New Image
+                        SaveNewImage(pawn, texture, historyBaseName);
                         onComplete?.Invoke(texture);
                     }
                     else
@@ -53,46 +85,59 @@ namespace RimPortrait
             }
             else
             {
-                // URL (OpenAI) or File Path
-                // Check if file exists in cache AND we are not forcing a new generation? 
-                // The patching logic (in HarmonyPatches) calls this AFTER generating a NEW url.
-                // So if 'url' is provided, we should probably ignore cache if it's a new generation?
-                // However, the current logic prefers cache if it exists. 
-                // Wait, if we just generated a new image, we want to see THAT one.
-                // But HarmonyPatches.cs logic is: unique ID is just pawn.ThingID. 
-                // If we generate a new portrait, we likely want to overwrite the old one.
-                // But ImageLoader.LoadImage prefers cache. THIS IS A BUG for re-generation.
-                // However, for the initial display issue: OpenAI returns a URL.
-                
-                // If the 'url' argument is actually a URL, we must download it.
-                // If we just generated it, we shouldn't read from cache unless we saved it there first.
-                // HarmonyPatches passes the NEW url. 
-                // If we have a cached file for 'pawnID', LoadImage currently returns THAT instead of downloading the new URL.
-                // This means 'Update Portrait' button might just show the old cached image if it exists!
-                // But the user's issue is "Image not showing", implies maybe no image at all.
-                
-                // Let's first fix the Base64 support.
-                
-                // Note: If url is NOT base64, we assume it's a URL.
-                // We should probably NOT verify cache if a URL is explicitly provided?
-                // Or maybe we treat 'pawnId' as a cache key.
-                
-                // For now, let's keep existing cache logic but handle Base64.
-                
-                if (File.Exists(filePath))
+                // URL (OpenAI)
+                if (!string.IsNullOrEmpty(urlOrBase64))
                 {
-                    // IF the input string LOOKS like a URL (starts with http), maybe we should prioritize downloading it?
-                    // But if it's just loading a saved game, we might call LoadImage without a new URL?
-                    // Actually HarmonyPatches ONLY calls LoadImage inside the GeneratePortrait callback.
-                    // So it's ALWAYS a new image generation event.
-                    // So we should FORCE download/processing and overwrite cache.
-                    
-                    Main.CoroutineRunner.StartCoroutine(DownloadImage(urlOrBase64, filePath, onComplete));
+                    Main.CoroutineRunner.StartCoroutine(DownloadImage(urlOrBase64, pawn, onComplete, historyBaseName));
                 }
                 else
                 {
-                    Main.CoroutineRunner.StartCoroutine(DownloadImage(urlOrBase64, filePath, onComplete));
+                    Log.Warning($"[RimPortrait] No valid image source found for {pawnId} and no cache exists.");
+                    onComplete?.Invoke(null);
                 }
+            }
+        }
+        
+        private static void SaveNewImage(Pawn pawn, Texture2D texture, string baseName)
+        {
+            try
+            {
+                // Determine new filename
+                string finalFilename;
+                
+                if (!string.IsNullOrEmpty(baseName))
+                {
+                    string sanitized = string.Join("_", baseName.Split(Path.GetInvalidFileNameChars()));
+                    finalFilename = $"{sanitized}.png";
+                    string fullPath = Path.Combine(CachePath, finalFilename);
+                    
+                    int count = 1;
+                    while (File.Exists(fullPath))
+                    {
+                        finalFilename = $"{sanitized}({count}).png";
+                        fullPath = Path.Combine(CachePath, finalFilename);
+                        count++;
+                    }
+                }
+                else
+                {
+                    // Fallback to PawnID if no name provided (shouldn't happen with current logic but safe)
+                    finalFilename = $"{pawn.ThingID}.png";
+                }
+
+                string savePath = Path.Combine(CachePath, finalFilename);
+                byte[] bytes = texture.EncodeToPNG();
+                File.WriteAllBytes(savePath, bytes);
+                
+                // Update DataStore
+                var store = Find.World.GetComponent<RimPortraitDataStore>();
+                store?.SetPortraitPath(pawn.ThingID, finalFilename);
+                
+                Log.Message($"[RimPortrait] Saved portrait: {finalFilename}");
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[RimPortrait] Failed to save image: {ex.Message}");
             }
         }
         
@@ -125,7 +170,7 @@ namespace RimPortrait
             }
         }
 
-        private static IEnumerator DownloadImage(string url, string savePath, Action<Texture2D> onComplete)
+        private static IEnumerator DownloadImage(string url, Pawn pawn, Action<Texture2D> onComplete, string historyBaseName = null)
         {
             using (UnityWebRequest uwr = UnityWebRequestTexture.GetTexture(url))
             {
@@ -140,16 +185,8 @@ namespace RimPortrait
                 {
                     Texture2D texture = DownloadHandlerTexture.GetContent(uwr);
                     
-                    // Save to cache
-                    try
-                    {
-                        byte[] bytes = texture.EncodeToPNG();
-                        File.WriteAllBytes(savePath, bytes);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error($"[RimPortrait] Failed to save to cache: {ex.Message}");
-                    }
+                    // Save
+                    SaveNewImage(pawn, texture, historyBaseName);
 
                     onComplete?.Invoke(texture);
                 }

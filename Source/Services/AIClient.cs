@@ -5,9 +5,16 @@ using Verse;
 
 namespace RimPortrait
 {
-    // Stub class to be expanded in next steps
     public static class AIClient
     {
+        /// <summary>
+        /// Generates a portrait using the selected AI service.
+        /// </summary>
+        /// <param name="prompt">The text prompt describing the portrait.</param>
+        /// <param name="onUrlReceived">Callback when the image URL or Base64 string is received. Returns null on failure.</param>
+        /// <param name="aspectRatio">Target aspect ratio (Gemini only).</param>
+        /// <param name="pawnImageBase64">Optional base64 image of the pawn for reference (Gemini only).</param>
+        /// <param name="styleImageBase64">Optional base64 image for style reference (Gemini only).</param>
         public static void GeneratePortrait(string prompt, Action<string> onUrlReceived, string aspectRatio = "1:1", string pawnImageBase64 = null, string styleImageBase64 = null)
         {
             var settings = RimPortraitMod.settings;

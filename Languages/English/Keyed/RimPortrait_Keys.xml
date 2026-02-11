@@ -14,7 +14,7 @@
   <RimPortrait_Config_Title>Portrait Configuration</RimPortrait_Config_Title>
   <RimPortrait_Config_Prompt>Prompt</RimPortrait_Config_Prompt>
   <RimPortrait_Config_Style>Art Style</RimPortrait_Config_Style>
-  <RimPortrait_Config_Composition>Composition</RimPortrait_Config_Composition>
+  <RimPortrait_Config_Pose>Pose</RimPortrait_Config_Pose>
   <RimPortrait_Config_AspectRatio>Aspect Ratio</RimPortrait_Config_AspectRatio>
   <RimPortrait_Command_Generate>Generate</RimPortrait_Command_Generate>
 
@@ -30,4 +30,6 @@
   <RimPortrait_Config_ClearSelection>Clear Selection</RimPortrait_Config_ClearSelection>
   <RimPortrait_Config_SelectedImage>Selected: {0}</RimPortrait_Config_SelectedImage>
   <RimPortrait_Config_StyleDisabledByImage>(Disabled by Image)</RimPortrait_Config_StyleDisabledByImage>
+  <RimPortrait_Config_RefStyle>Reference Art Style</RimPortrait_Config_RefStyle>
+  <RimPortrait_Config_RefPose>Reference Pose</RimPortrait_Config_RefPose>
 </LanguageData>
